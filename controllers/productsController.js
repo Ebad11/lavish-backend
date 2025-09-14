@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const cloudinary = require("../config/cloudinary");
 
 // helper to format product objects
 const formatProduct = (p) => ({
@@ -10,7 +11,7 @@ const formatProduct = (p) => ({
   description: p.description,
   createdAt: p.createdAt,
   updatedAt: p.updatedAt,
-  inStock: p.inStock
+  inStock: p.inStock,
 });
 
 // GET /api/products
@@ -28,16 +29,62 @@ exports.getById = async (req, res) => {
 
 // POST /api/products
 exports.create = async (req, res) => {
-  const payload = req.body;
-  const product = await Product.create(payload);
-  res.status(201).json(formatProduct(product));
+  try {
+    let payload = req.body;
+
+    // Parse JSON if sent via FormData
+    if (typeof payload === "string") {
+      payload = JSON.parse(payload);
+    }
+
+    // Upload image if provided
+    let imageUrl = null;
+    if (req.file) {
+      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+        folder: "lavish_products",
+        resource_type: "image", // keep original type
+        quality: "100", // force full quality
+      });
+      imageUrl = uploaded.secure_url;
+    }
+
+    const product = await Product.create({
+      ...payload,
+      image: imageUrl,
+    });
+
+    res.status(201).json(formatProduct(product));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // PATCH /api/products/:id
 exports.update = async (req, res) => {
-  const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!updated) return res.status(404).json({ error: "Product not found" });
-  res.json(formatProduct(updated));
+  try {
+    let payload = req.body;
+
+    // Upload new image if provided
+    if (req.file) {
+      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+        folder: "lavish_products",
+        resource_type: "image", // keep original type
+        quality: "100", // full quality
+      });
+      payload.image = uploaded.secure_url;
+    }
+
+    const updated = await Product.findByIdAndUpdate(req.params.id, payload, {
+      new: true,
+    });
+    if (!updated) return res.status(404).json({ error: "Product not found" });
+
+    res.json(formatProduct(updated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // DELETE /api/products/:id
