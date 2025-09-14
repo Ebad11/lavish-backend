@@ -1,8 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const ctrl = require("../controllers/ordersController");
+const multer = require("multer");
+const orderController = require("../controllers/ordersController");
 
-// create order (body: { cartId?, cartItems?, shippingInfo })
-router.post("/", ctrl.create);
+// Multer temp storage (we’ll send file to Cloudinary later in controller)
+const upload = multer({ dest: "uploads/" });
+
+// Create order with optional screenshot upload
+router.post("/", upload.single("screenshot"), orderController.create);
 
 module.exports = router;

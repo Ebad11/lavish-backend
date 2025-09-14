@@ -7,7 +7,6 @@ const connectDB = require("./config/db");
 // routes
 const productsRoutes = require("./routes/products");
 const categoriesRoutes = require("./routes/categories");
-const cartRoutes = require("./routes/cart");
 const ordersRoutes = require("./routes/orders");
 const contactRoutes = require("./routes/contact");
 
@@ -26,7 +25,6 @@ app.use(express.urlencoded({ extended: true }));
 // routes
 app.use("/api/products", productsRoutes);
 app.use("/api/categories", categoriesRoutes);
-app.use("/api/cart", cartRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/contact", contactRoutes);
 
