@@ -23,7 +23,9 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",     // local React dev
-      "https://lavishattire.in"    // your live frontend domain
+      "https://lavishattire.in",    // your live frontend domain
+      "https://lavish-attire-boutique.vercel.app"
+
     ],
     methods: "GET,POST,PUT,DELETE",
     credentials: true,
