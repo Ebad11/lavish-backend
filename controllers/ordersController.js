@@ -5,41 +5,81 @@ const { sendMail } = require("../config/mailer");
 
 exports.create = async (req, res) => {
   try {
+    console.log("===== NEW ORDER REQUEST =====");
+    console.log("Raw req.body:", req.body);
+    console.log("Raw req.file:", req.file);
+
+    console.log("ENV → FROM_EMAIL:", process.env.FROM_EMAIL);
+    console.log("ENV → ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
+    console.log("Mailer exists:", sendMail ? "YES" : "NO");
+
     let { cartItems, shippingInfo } = req.body;
 
-    if (typeof cartItems === "string") cartItems = JSON.parse(cartItems);
-    if (typeof shippingInfo === "string") shippingInfo = JSON.parse(shippingInfo);
+    console.log("Before parse → cartItems:", cartItems);
+    console.log("Before parse → shippingInfo:", shippingInfo);
+
+    if (typeof cartItems === "string") {
+      try {
+        cartItems = JSON.parse(cartItems);
+        console.log("Parsed cartItems:", cartItems);
+      } catch (e) {
+        console.error("❌ cartItems JSON parse error:", e);
+      }
+    }
+
+    if (typeof shippingInfo === "string") {
+      try {
+        shippingInfo = JSON.parse(shippingInfo);
+        console.log("Parsed shippingInfo:", shippingInfo);
+      } catch (e) {
+        console.error("❌ shippingInfo JSON parse error:", e);
+      }
+    }
 
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      console.log("❌ Cart empty or invalid:", cartItems);
       return res.status(400).json({ error: "Cart empty" });
     }
 
-    const subtotal = cartItems.reduce(
-      (s, it) => s + it.price * it.quantity, 0
-    );
-
+    const subtotal = cartItems.reduce((s, it) => s + it.price * it.quantity, 0);
     const shipping = subtotal > 2000 ? 0 : 150;
     const total = subtotal + shipping;
 
     const orderNumber = `LV-${Date.now()}`;
 
+    console.log("Calculated subtotal:", subtotal);
+    console.log("Calculated shipping:", shipping);
+    console.log("Calculated total:", total);
+    console.log("Generated order number:", orderNumber);
+
     // Upload screenshot to Cloudinary (optional)
     let screenshotUrl = null;
     if (req.file) {
-      const uploaded = await cloudinary.uploader.upload(req.file.path, {
-        folder: "lavish_orders",
-      });
-      screenshotUrl = uploaded.secure_url;
+      console.log("Uploading screenshot to Cloudinary...");
+      try {
+        const uploaded = await cloudinary.uploader.upload(req.file.path, {
+          folder: "lavish_orders",
+        });
+        screenshotUrl = uploaded.secure_url;
+        console.log("Screenshot URL:", screenshotUrl);
+      } catch (e) {
+        console.error("❌ Cloudinary upload failed:", e);
+      }
+    } else {
+      console.log("No screenshot uploaded");
     }
 
     // Build email HTML
+    console.log("Building email HTML...");
+    console.log("shippingInfo used inside HTML:", shippingInfo);
+
     const shippingHtml = `
       <h3>Shipping Info</h3>
       <ul>
-        <li><strong>Name:</strong> ${shippingInfo.firstName || ""} ${shippingInfo.lastName || ""}</li>
-        <li><strong>Email:</strong> ${shippingInfo.email}</li>
-        <li><strong>Phone:</strong> ${shippingInfo.phone}</li>
-        <li><strong>Address:</strong> ${shippingInfo.address}</li>
+        <li><strong>Name:</strong> ${shippingInfo?.firstName || ""} ${shippingInfo?.lastName || ""}</li>
+        <li><strong>Email:</strong> ${shippingInfo?.email}</li>
+        <li><strong>Phone:</strong> ${shippingInfo?.phone}</li>
+        <li><strong>Address:</strong> ${shippingInfo?.address}</li>
       </ul>
     `;
 
@@ -67,9 +107,18 @@ exports.create = async (req, res) => {
       </table>
     `;
 
+    console.log("Email HTML built successfully.");
+
     // Send email BEFORE database save
+    console.log("===== SENDING EMAIL VIA RESEND =====");
     let emailResponse;
+
     try {
+      console.log("Calling sendMail() with:", {
+        to: process.env.ADMIN_EMAIL,
+        subject: `New Order: ${orderNumber}`
+      });
+
       emailResponse = await sendMail({
         to: process.env.ADMIN_EMAIL,
         subject: `New Order: ${orderNumber}`,
@@ -83,16 +132,19 @@ exports.create = async (req, res) => {
         `,
       });
 
-      console.log("Email sent → ID:", emailResponse?.id);
+      console.log("FULL emailResponse from Resend:", emailResponse);
+      console.log("Email sent → ID:", emailResponse?.id || emailResponse?.data?.id);
 
     } catch (emailErr) {
-      console.warn("Email sending failed:", emailErr.message);
+      console.warn("❌ EMAIL FAILED →", emailErr.message);
+      console.warn("Full error object:", emailErr);
       return res.status(500).json({
         error: "Failed to send email. Order not saved.",
       });
     }
 
     // Save order only if email worked
+    console.log("Saving order to database...");
     const order = await Order.create({
       orderNumber,
       items: cartItems,
@@ -104,9 +156,11 @@ exports.create = async (req, res) => {
       paymentScreenshot: screenshotUrl,
     });
 
+    console.log("Order saved successfully with ID:", order._id);
+
     return res.status(201).json(order);
   } catch (err) {
-    console.error(err);
+    console.error("❌ SERVER ERROR:", err);
     return res.status(500).json({ error: "server error" });
   }
 };
