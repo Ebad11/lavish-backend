@@ -71,6 +71,7 @@ exports.create = async (req, res) => {
     let emailResponse;
     try {
       emailResponse = await sendMail({
+        to: process.env.ADMIN_EMAIL,
         subject: `New Order: ${orderNumber}`,
         html: `
           <h2>New Order Received</h2>
