@@ -22,15 +22,23 @@ connectDB();
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",     // local React dev
-      "https://lavishattire.in",    // your live frontend domain
-      "https://lavish-attire-boutique.vercel.app"
+      "http://localhost:3000",
 
+      "https://lavishattire.in",
+      "http://lavishattire.in",
+
+      "https://www.lavishattire.in",
+      "http://www.lavishattire.in",
+
+      "https://lavish-attire-boutique.vercel.app"
     ],
-    methods: "GET,POST,PUT,DELETE",
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
+app.options("*", cors());
+
 
 // middlewares
 app.use(morgan("dev"));
