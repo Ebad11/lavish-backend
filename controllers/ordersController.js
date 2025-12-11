@@ -1,13 +1,12 @@
 const Order = require("../models/Order");
-const { v4: uuidv4 } = require("uuid");
-const { sendMail } = require("../config/mailer");
 const cloudinary = require("../config/cloudinary");
+const { sendMail } = require("../config/mailer");
 
 exports.create = async (req, res) => {
   try {
     let { cartItems, shippingInfo } = req.body;
 
-    // Parse JSON if sent as string from FormData
+    // Parse JSON if sent as string (FormData)
     if (typeof cartItems === "string") {
       cartItems = JSON.parse(cartItems);
     }
@@ -19,7 +18,7 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: "Cart empty" });
     }
 
-    const subtotal = cartItems.reduce((s, it) => s + it.price * it.quantity, 0);
+    const subtotal = cartItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
     const shipping = subtotal > 2000 ? 0 : 150;
     const total = subtotal + shipping;
 
@@ -34,18 +33,7 @@ exports.create = async (req, res) => {
       screenshotUrl = uploaded.secure_url;
     }
 
-    const order = await Order.create({
-      orderNumber,
-      items: cartItems,
-      shippingInfo,
-      subtotal,
-      shipping,
-      total,
-      status: "pending",
-      paymentScreenshot: screenshotUrl, // store Cloudinary URL
-    });
-
-    // Format shipping info into HTML
+    // Prepare HTML for email
     const shippingHtml = `
       <h3>Shipping Info</h3>
       <ul>
@@ -56,7 +44,6 @@ exports.create = async (req, res) => {
       </ul>
     `;
 
-    // Format cart items into a table
     const cartHtml = `
       <h3>Cart Items</h3>
       <table border="1" cellspacing="0" cellpadding="5">
@@ -81,27 +68,43 @@ exports.create = async (req, res) => {
       </table>
     `;
 
-    // Send email to admin
-   try {
-  const info = await sendMail({
-    subject: `New Order: ${orderNumber}`,
-    html: `
-      <h2>New Order Received</h2>
-      <p><strong>Order Number:</strong> ${orderNumber}</p>
-      <p><strong>Total:</strong> ₹${total}</p>
-      ${shippingHtml}
-      ${cartHtml}
-      ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Payment Screenshot</a></p>` : ""}
-    `,
-  });
-  console.log("Order email sent, resend response id:", info?.id || info?.messageId || info?.status);
-} catch (err) {
-  console.warn("Order email failed:", err.message || err);
-}
+    // Try sending email BEFORE saving order
+    try {
+      const info = await sendMail({
+        subject: `New Order: ${orderNumber}`,
+        html: `
+          <h2>New Order Received</h2>
+          <p><strong>Order Number:</strong> ${orderNumber}</p>
+          <p><strong>Total:</strong> ₹${total}</p>
+          ${shippingHtml}
+          ${cartHtml}
+          ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Payment Screenshot</a></p>` : ""}
+        `,
+      });
 
-    res.status(201).json(order);
+      console.log("Order email sent. Resend email ID:", info?.data?.id);
+    } catch (emailErr) {
+      console.warn("Email sending failed:", emailErr.message || emailErr);
+      return res.status(500).json({
+        error: "Failed to send email. Order not saved.",
+      });
+    }
+
+    // Email succeeded → Now save order
+    const order = await Order.create({
+      orderNumber,
+      items: cartItems,
+      shippingInfo,
+      subtotal,
+      shipping,
+      total,
+      status: "pending",
+      paymentScreenshot: screenshotUrl,
+    });
+
+    return res.status(201).json(order);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "server error" });
+    return res.status(500).json({ error: "server error" });
   }
 };
