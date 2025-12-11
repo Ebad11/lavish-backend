@@ -82,21 +82,22 @@ exports.create = async (req, res) => {
     `;
 
     // Send email to admin
-    try {
-      await sendMail({
-        subject: `New Order: ${orderNumber}`,
-        html: `
-          <h2>New Order Received</h2>
-          <p><strong>Order Number:</strong> ${orderNumber}</p>
-          <p><strong>Total:</strong> ₹${total}</p>
-          ${shippingHtml}
-          ${cartHtml}
-          ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Payment Screenshot</a></p>` : ""}
-        `,
-      });
-    } catch (err) {
-      console.warn("Order email failed:", err.message);
-    }
+   try {
+  const info = await sendMail({
+    subject: `New Order: ${orderNumber}`,
+    html: `
+      <h2>New Order Received</h2>
+      <p><strong>Order Number:</strong> ${orderNumber}</p>
+      <p><strong>Total:</strong> ₹${total}</p>
+      ${shippingHtml}
+      ${cartHtml}
+      ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Payment Screenshot</a></p>` : ""}
+    `,
+  });
+  console.log("Order email sent, resend response id:", info?.id || info?.messageId || info?.status);
+} catch (err) {
+  console.warn("Order email failed:", err.message || err);
+}
 
     res.status(201).json(order);
   } catch (err) {
