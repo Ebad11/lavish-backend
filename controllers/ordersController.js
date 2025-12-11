@@ -42,7 +42,7 @@ exports.create = async (req, res) => {
     }
 
     const subtotal = cartItems.reduce((s, it) => s + it.price * it.quantity, 0);
-    const shipping = subtotal > 2000 ? 0 : 150;
+    const shipping = 0;
     const total = subtotal + shipping;
 
     const orderNumber = `LV-${Date.now()}`;
