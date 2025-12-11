@@ -1,3 +1,4 @@
+// controllers/orderController.js
 const Order = require("../models/Order");
 const cloudinary = require("../config/cloudinary");
 const { sendMail } = require("../config/mailer");
@@ -6,25 +7,23 @@ exports.create = async (req, res) => {
   try {
     let { cartItems, shippingInfo } = req.body;
 
-    // Parse JSON if sent as string (FormData)
-    if (typeof cartItems === "string") {
-      cartItems = JSON.parse(cartItems);
-    }
-    if (typeof shippingInfo === "string") {
-      shippingInfo = JSON.parse(shippingInfo);
-    }
+    if (typeof cartItems === "string") cartItems = JSON.parse(cartItems);
+    if (typeof shippingInfo === "string") shippingInfo = JSON.parse(shippingInfo);
 
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
       return res.status(400).json({ error: "Cart empty" });
     }
 
-    const subtotal = cartItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
+    const subtotal = cartItems.reduce(
+      (s, it) => s + it.price * it.quantity, 0
+    );
+
     const shipping = subtotal > 2000 ? 0 : 150;
     const total = subtotal + shipping;
 
     const orderNumber = `LV-${Date.now()}`;
 
-    // Upload screenshot to Cloudinary if provided
+    // Upload screenshot to Cloudinary (optional)
     let screenshotUrl = null;
     if (req.file) {
       const uploaded = await cloudinary.uploader.upload(req.file.path, {
@@ -33,7 +32,7 @@ exports.create = async (req, res) => {
       screenshotUrl = uploaded.secure_url;
     }
 
-    // Prepare HTML for email
+    // Build email HTML
     const shippingHtml = `
       <h3>Shipping Info</h3>
       <ul>
@@ -56,21 +55,22 @@ exports.create = async (req, res) => {
         ${cartItems
           .map(
             (it) => `
-          <tr>
-            <td>${it.name}</td>
-            <td>${it.quantity}</td>
-            <td>₹${it.price}</td>
-            <td>₹${it.price * it.quantity}</td>
-          </tr>
-        `
+              <tr>
+                <td>${it.name}</td>
+                <td>${it.quantity}</td>
+                <td>₹${it.price}</td>
+                <td>₹${it.price * it.quantity}</td>
+              </tr>
+            `
           )
           .join("")}
       </table>
     `;
 
-    // Try sending email BEFORE saving order
+    // Send email BEFORE database save
+    let emailResponse;
     try {
-      const info = await sendMail({
+      emailResponse = await sendMail({
         subject: `New Order: ${orderNumber}`,
         html: `
           <h2>New Order Received</h2>
@@ -78,19 +78,20 @@ exports.create = async (req, res) => {
           <p><strong>Total:</strong> ₹${total}</p>
           ${shippingHtml}
           ${cartHtml}
-          ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Payment Screenshot</a></p>` : ""}
+          ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Screenshot</a></p>` : ""}
         `,
       });
 
-      console.log("Order email sent. Resend email ID:", info?.data?.id);
+      console.log("Email sent → ID:", emailResponse?.id);
+
     } catch (emailErr) {
-      console.warn("Email sending failed:", emailErr.message || emailErr);
+      console.warn("Email sending failed:", emailErr.message);
       return res.status(500).json({
         error: "Failed to send email. Order not saved.",
       });
     }
 
-    // Email succeeded → Now save order
+    // Save order only if email worked
     const order = await Order.create({
       orderNumber,
       items: cartItems,
