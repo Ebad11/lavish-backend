@@ -12,24 +12,50 @@ const contactRoutes = require("./routes/contact");
 
 const app = express();
 
-// connect db
+// connect DB
 connectDB();
 
-// CORS
+// -------------------- FIXED CORS FOR VERCEL --------------------
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://lavishattire.in",
+  "http://lavishattire.in",
+  "https://www.lavishattire.in",
+  "http://www.lavishattire.in",
+  "https://lavish-attire-boutique.vercel.app"
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://lavishattire.in",
-      "http://lavishattire.in",
-      "https://www.lavishattire.in",
-      "http://www.lavishattire.in",
-      "https://lavish-attire-boutique.vercel.app",
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
   })
 );
+
+// ------------- FALLBACK HEADERS (IMPORTANT FOR VERCEL) -------------
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // middlewares
 app.use(morgan("dev"));
@@ -47,5 +73,5 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, time: Date.now() });
 });
 
-// IMPORTANT: Export app instead of listening
+// -------------------- EXPORT INSTEAD OF LISTEN --------------------
 module.exports = app;
