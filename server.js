@@ -12,32 +12,24 @@ const contactRoutes = require("./routes/contact");
 
 const app = express();
 
-// Render will give PORT automatically
-const PORT = process.env.PORT || 5000;
-
 // connect db
 connectDB();
 
-// ---------------- CORS (IMPORTANT for Deployment) ----------------
+// CORS
 app.use(
   cors({
     origin: [
       "http://localhost:3000",
-
       "https://lavishattire.in",
       "http://lavishattire.in",
-
       "https://www.lavishattire.in",
       "http://www.lavishattire.in",
-
-      "https://lavish-attire-boutique.vercel.app"
+      "https://lavish-attire-boutique.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
-
-
 
 // middlewares
 app.use(morgan("dev"));
@@ -50,12 +42,10 @@ app.use("/api/categories", categoriesRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/contact", contactRoutes);
 
-// Health check for Render
+// health check
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, time: Date.now() });
 });
 
-// start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// IMPORTANT: Export app instead of listening
+module.exports = app;
