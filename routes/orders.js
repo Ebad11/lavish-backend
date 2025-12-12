@@ -3,8 +3,8 @@ const router = express.Router();
 const multer = require("multer");
 const orderController = require("../controllers/ordersController");
 
-// Multer temp storage (we’ll send file to Cloudinary later in controller)
-const upload = multer({ dest: "uploads/" });
+// Multer memory storage (Vercel requires this)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Create order with optional screenshot upload
 router.post("/", upload.single("screenshot"), orderController.create);

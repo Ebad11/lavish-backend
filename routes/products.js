@@ -3,8 +3,9 @@ const router = express.Router();
 const productController = require("../controllers/productsController");
 const multer = require("multer");
 
-// use multer for file uploads
-const upload = multer({ dest: "uploads/" });
+// Multer memory storage (Vercel-friendly)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // fetch all products
 router.get("/", productController.getAll);

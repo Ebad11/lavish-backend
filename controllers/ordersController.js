@@ -1,4 +1,3 @@
-// controllers/orderController.js
 const Order = require("../models/Order");
 const cloudinary = require("../config/cloudinary");
 const { sendMail } = require("../config/mailer");
@@ -9,13 +8,11 @@ exports.create = async (req, res) => {
 
     let { cartItems, shippingInfo, upiTransactionId } = req.body;
 
-    console.log("UPI Transaction ID:", upiTransactionId);
-
     // Parse JSON fields
     if (typeof cartItems === "string") cartItems = JSON.parse(cartItems);
     if (typeof shippingInfo === "string") shippingInfo = JSON.parse(shippingInfo);
 
-    // Validate
+    // Validations
     if (!upiTransactionId || upiTransactionId.trim().length < 6) {
       return res.status(400).json({ error: "Invalid UPI Transaction ID" });
     }
@@ -29,12 +26,16 @@ exports.create = async (req, res) => {
     const total = subtotal + shipping;
     const orderNumber = `LV-${Date.now()}`;
 
-    // Upload screenshot if provided
+    // Upload screenshot IF provided
     let screenshotUrl = null;
+
     if (req.file) {
-      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+      const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+      const uploaded = await cloudinary.uploader.upload(base64File, {
         folder: "lavish_orders",
       });
+
       screenshotUrl = uploaded.secure_url;
     }
 
@@ -78,8 +79,10 @@ exports.create = async (req, res) => {
         <p><strong>Order Number:</strong> ${orderNumber}</p>
         <p><strong>Total:</strong> ₹${total}</p>
         <p><strong>UPI Transaction ID:</strong> ${upiTransactionId}</p>
+
         ${shippingHtml}
         ${cartHtml}
+
         ${screenshotUrl ? `<p><a href="${screenshotUrl}">View Screenshot</a></p>` : ""}
       `,
     });
